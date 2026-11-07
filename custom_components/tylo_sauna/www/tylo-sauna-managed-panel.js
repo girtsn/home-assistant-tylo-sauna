@@ -2,8 +2,10 @@
  * TadoX-style shared calendar, Recorder statistics, and existing HA services.
  * No control commands bypass the climate entity's safety checks.
  */
-const SA_ASSET_VERSION=new URL(import.meta.url).searchParams.get("v")||"0.5.0";
-const {tsPresetRange}=await import("./tylo-sauna-date-range-picker.js?v="+encodeURIComponent(SA_ASSET_VERSION));
+const SA_ASSET_VERSION=new URL(import.meta.url).searchParams.get("v")||"dev";
+// Register this element before loading dependencies, so transient module
+// failures show a retryable message instead of an empty sidebar.
+let tsPresetRange=null;
 const SA_KEYS=new Set(["climate","light","stop_time","time_to_off","favorite",
   "temperature","temperature_setpoint","humidity","humidity_setpoint",
   "online","fault_code","fault_message","programs","heating_active","standby_active"]);
@@ -20,44 +22,68 @@ class TyloSaunaManagedPanel extends HTMLElement{
     super();
     this.attachShadow({mode:"open"});
     this._hass=null;this._ready=false;this._loading=false;
-    this._devices=[];this._range=tsPresetRange("last7");
+    this._devices=[];this._range=null;
+    this._assetsReady=false;this._assetPromise=null;this._assetsError="";
+    this._assetRetries=0;
     this._chartResults={};this._errors={};this._busy=new Set();this._notice="";
-    this._request=0;this._chartRefresh=0;this._versionTimer=null;
+    this._request=0;this._chartRefresh=0;
   }
   set hass(value){
     this._hass=value;
+    if(!this._assetsReady){
+      this._ensureAssets();
+      if(value&&this.isConnected)this._render();
+      return;
+    }
     if(value&&!this._ready&&!this._loading&&this.isConnected)this._discover();
     if(this._ready){
       this._updateLive();
       if(Date.now()-this._chartRefresh>15*60*1000&&!this._busy.size)this._loadHistory();
     }
   }
-  set panel(value){this._panel=value;}
+  set panel(value){
+    const oldVersion=this._panel?.config?.integration_version;
+    this._panel=value;
+    if(oldVersion&&value?.config?.integration_version&&
+       oldVersion!==value.config.integration_version){
+      const key="sauna-panel-reload-"+value.config.integration_version;
+      try{
+        if(window.sessionStorage.getItem(key)!=="1"){
+          window.sessionStorage.setItem(key,"1");
+          window.location.reload();return;
+        }
+      }catch(_err){/* Do not loop when session storage is unavailable. */}
+      this._announce("The Sauna panel was updated; reopen the page if it still shows old content.");
+    }
+  }
   set narrow(value){this._narrow=!!value;}
   set route(value){this._route=value;}
   connectedCallback(){
-    if(this._hass&&!this._ready&&!this._loading)this._discover();
-    if(!this._versionTimer){
-      this._checkVersion();
-      this._versionTimer=window.setInterval(()=>this._checkVersion(),120000);
-    }
+    this._ensureAssets();
+    if(this._assetsReady&&this._hass&&!this._ready&&!this._loading)this._discover();
   }
-  disconnectedCallback(){
-    if(this._versionTimer){window.clearInterval(this._versionTimer);this._versionTimer=null;}
-  }
-  async _checkVersion(){
-    if(!this.isConnected||this._busy.size)return;
-    try{
-      const response=await fetch("/tylo_sauna/manifest.json?check="+Date.now(),{cache:"no-store"});
-      if(!response.ok)return;
-      const v=(await response.json()).version;
-      if(!v||v===SA_ASSET_VERSION)return;
-      const key="tylo-panel-reload-"+v;
-      if(window.sessionStorage.getItem(key)!=="1"){
-        window.sessionStorage.setItem(key,"1");window.location.reload();return;
-      }
-      this._announce("Dashboard "+v+" installed. Reopen this tab if the previous panel is still shown.");
-    }catch(_err){/* HA may be restarting or browser storage unavailable */}
+  _ensureAssets(){
+    if(this._assetsReady||this._assetPromise||!this.isConnected)return;
+    this._assetsError="";
+    const version=encodeURIComponent(SA_ASSET_VERSION);
+    const retry=this._assetRetries?"&retry="+this._assetRetries:"";
+    this._assetPromise=import("./tylo-sauna-date-range-picker.js?v="+version+retry)
+      .then(picker=>{
+        tsPresetRange=picker.tsPresetRange;
+        if(typeof tsPresetRange!=="function")
+          throw new Error("Date picker did not export tsPresetRange");
+        this._range??=tsPresetRange("last7");
+        this._assetsReady=true;
+        if(this._hass&&!this._ready&&!this._loading)this._discover();
+      })
+      .catch(err=>{
+        this._assetsError="Could not load Sauna dashboard date picker (version "+
+          SA_ASSET_VERSION+"): "+(err?.message||String(err));
+      })
+      .finally(()=>{
+        this._assetPromise=null;
+        if(this._hass&&this.isConnected)this._render();
+      });
   }
   _el(tag,text,cls){
     const el=document.createElement(tag);
@@ -500,6 +526,18 @@ class TyloSaunaManagedPanel extends HTMLElement{
     header.append(this._btn("Refresh devices",()=>{this._ready=false;this._discover();}));
     shell.append(header);
     const notice=this._el("div",this._notice,"notice");notice.dataset.notice="";shell.append(notice);
+    if(!this._assetsReady){
+      shell.append(this._el("p",this._assetsError||
+        "Loading Sauna dashboard modules…","subtle"));
+      if(this._assetsError){
+        const retry=this._btn("Retry loading",()=>{
+          this._assetRetries++;
+          this._ensureAssets();this._render();
+        });
+        shell.append(retry);
+      }
+      root.append(shell);return;
+    }
     if(!this._ready){shell.append(this._el("p","Loading sauna device registry…","subtle"));root.append(shell);return;}
     if(!this._devices.length) shell.append(this._el("p","No configured Tylo Sauna devices found.","subtle"));
     const grid=this._el("div",null,"grid");
