@@ -1,12 +1,16 @@
 {
   "domain": "tylo_sauna",
   "name": "Tylo Sauna",
-  "codeowners": ["@skyer"],
+  "codeowners": [
+    "@girtsn"
+  ],
   "config_flow": true,
-  "documentation": "https://github.com/skyer/home-assistant-tylo-sauna",
+  "documentation": "https://github.com/girtsn/home-assistant-tylo-sauna",
   "iot_class": "local_push",
-  "issue_tracker": "https://github.com/skyer/home-assistant-tylo-sauna/issues",
-  "loggers": ["custom_components.tylo_sauna"],
+  "issue_tracker": "https://github.com/girtsn/home-assistant-tylo-sauna/issues",
+  "loggers": [
+    "custom_components.tylo_sauna"
+  ],
   "requirements": [],
-  "version": "0.4.2"
+  "version": "0.5.0"
 }
