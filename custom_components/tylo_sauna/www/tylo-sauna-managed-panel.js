@@ -137,6 +137,10 @@ class TyloSaunaManagedPanel extends HTMLElement{
     return [
       ":host{display:block;box-sizing:border-box;color:var(--primary-text-color);font:inherit}",
       "*{box-sizing:border-box}.shell{max-width:1400px;margin:0 auto;padding:16px 20px 36px}",
+      ".ha-mobile-menu{display:none;align-items:center;justify-content:center;width:40px;height:40px;flex:0 0 40px;padding:8px;border:0;border-radius:50%;background:transparent;color:inherit;cursor:pointer}",
+      ".ha-mobile-menu:focus-visible{outline:2px solid var(--primary-color,#03a9f4);outline-offset:2px}",
+      ".heading-group{display:flex;align-items:center;gap:10px;min-width:0}",
+      "@media(max-width:870px){.ha-mobile-menu{display:inline-flex}}",
       "header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px}",
       "h1{font-size:25px;font-weight:650;margin:0}h2{font-size:18px;margin:0 0 13px;font-weight:600}",
       "h3{font-size:15px;margin:15px 0 10px;font-weight:600}",
@@ -504,6 +508,22 @@ class TyloSaunaManagedPanel extends HTMLElement{
       el.title=!online?"Sauna is not online":"";
     }
   }
+  _mobileMenuButton(){
+    // A custom panel owns its header on narrow screens; HA does not supply one.
+    const button=document.createElement("button");
+    button.type="button";
+    button.className="ha-mobile-menu";
+    button.title="Open Home Assistant menu";
+    button.setAttribute("aria-label","Open Home Assistant menu");
+    const icon=document.createElement("ha-icon");
+    icon.setAttribute("icon","mdi:menu");
+    icon.setAttribute("aria-hidden","true");
+    button.append(icon);
+    button.addEventListener("click",()=>this.dispatchEvent(
+      new Event("hass-toggle-menu",{bubbles:true,composed:true})
+    ));
+    return button;
+  }
   _render(){
     const root=this.shadowRoot;root.replaceChildren();
     const style=this._el("style");style.textContent=this._css();root.append(style);
@@ -512,7 +532,9 @@ class TyloSaunaManagedPanel extends HTMLElement{
     const heading=this._el("div");
     heading.append(this._el("h1","Sauna"));
     heading.append(this._el("p","Tylo Elite · Integration-managed dashboard","subtle"));
-    header.append(heading);
+    const headingGroup=this._el("div",null,"heading-group");
+    headingGroup.append(this._mobileMenuButton(),heading);
+    header.append(headingGroup);
     header.append(this._btn("Refresh devices",()=>{this._ready=false;this._discover();}));
     shell.append(header);
     const notice=this._el("div",this._notice,"notice");notice.dataset.notice="";shell.append(notice);
