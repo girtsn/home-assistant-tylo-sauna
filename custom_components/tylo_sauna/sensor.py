@@ -7,7 +7,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import EntityCategory
+from homeassistant.const import EntityCategory, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 
@@ -31,6 +31,8 @@ async def async_setup_entry(
             TyloSaunaFaultCode(controller),
             TyloSaunaFaultMessage(controller),
             TyloSaunaPrograms(controller),
+            TyloSaunaTemperature(controller),
+            TyloSaunaTemperatureSetpoint(controller),
             TyloSaunaHumidity(controller),
             TyloSaunaHumiditySetpoint(controller),
         ]
@@ -197,6 +199,49 @@ class TyloSaunaPrograms(_BaseTyloSensor):
         return d
 
 
+
+class TyloSaunaTemperature(_BaseTyloSensor):
+    """Sauna air temperature, as a Home Assistant long-term statistic."""
+
+    _attr_device_class = SensorDeviceClass.TEMPERATURE
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, controller) -> None:
+        super().__init__(controller)
+        self._attr_name = f"{controller.name} temperature"
+        self._attr_unique_id = f"tylo_sauna_{self._device_id}_temperature"
+
+    @property
+    def available(self) -> bool:
+        return bool(self._controller.is_online())
+
+    @property
+    def native_value(self) -> float | None:
+        return self._controller.t_cur_c
+
+
+class TyloSaunaTemperatureSetpoint(_BaseTyloSensor):
+    """Configured target temperature, useful for actual/target comparisons."""
+
+    _attr_device_class = SensorDeviceClass.TEMPERATURE
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, controller) -> None:
+        super().__init__(controller)
+        self._attr_name = f"{controller.name} temperature setpoint"
+        self._attr_unique_id = f"tylo_sauna_{self._device_id}_temperature_setpoint"
+
+    @property
+    def available(self) -> bool:
+        return bool(self._controller.is_online())
+
+    @property
+    def native_value(self) -> float | None:
+        return self._controller.t_set_c
+
+
 class TyloSaunaHumidity(_BaseTyloSensor):
     """Current humidity % (Combi/Steam setups)."""
 
@@ -223,6 +268,7 @@ class TyloSaunaHumiditySetpoint(_BaseTyloSensor):
 
     _attr_device_class = SensorDeviceClass.HUMIDITY
     _attr_native_unit_of_measurement = "%"
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, controller) -> None:
         super().__init__(controller)
