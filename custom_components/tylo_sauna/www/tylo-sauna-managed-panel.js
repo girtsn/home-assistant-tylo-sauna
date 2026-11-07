@@ -1,3 +1,4 @@
+import {attachRecorderChartTooltip} from "./chart-hover-tooltip.js";
 /* Tylo Sauna integration-managed Home Assistant sidebar.
  * TadoX-style shared calendar, Recorder statistics, and existing HA services.
  * No control commands bypass the climate entity's safety checks.
@@ -389,6 +390,10 @@ class TyloSaunaManagedPanel extends HTMLElement{
         "stroke-dasharray":s.dash?"7 4":"none","clip-path":"url(#"+clipId+")"}));
     }
     el.append(svg);
+    attachRecorderChartTooltip(el,svg,
+      series.map(s=>({label:s.label,color:s.color,points:s.values})),
+      {start,end,width:W,height:H,left:L,right:R,top:T,bottom:B,
+        yFor:Y,period:this._period(),unit:meta.unit});
     if(meta.key==="temperature")this._appendSessionBands(el,start,end);
     el.append(this._el("p","Recorder "+this._period()+" averages · "+meta.unit+
       " · Existing data only; gaps are not interpolated.","subtle"));
@@ -465,6 +470,17 @@ class TyloSaunaManagedPanel extends HTMLElement{
       }
     });
     block.append(svg);
+    const sessionSeries=devices.flatMap(dev=>dev.items.map(item=>({
+      label:dev.name+" · "+(item.index===0?"Heating":"Standby"),
+      color:item.index===0?"#d96b38":"#8269bd",
+      points:item.entries.map(row=>({x:row.start,y:row.mean*100}))
+    })));
+    attachRecorderChartTooltip(block,svg,sessionSeries,
+      {start,end,width:W,height:devices.length*(trackHeight+trackGap)+10,
+        left:L,right:R,top:0,bottom:0,period:this._period(),unit:"%",
+        yFor:(_value,seriesIndex)=>5+
+          Math.floor(seriesIndex/2)*(trackHeight+trackGap)+
+          (seriesIndex%2===0?4.5:13.5)});
     block.append(this._el("p","Session shading is aggregated from numeric mode readings. "+
       "Short periods show more precise intervals; monthly/annual views show approximate activity, "+
       "not exact start/stop times or operating hours.","subtle"));

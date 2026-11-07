@@ -28,6 +28,8 @@ jobs:
           for script in custom_components/tylo_sauna/www/*.js; do
             node --input-type=module --check < "$script"
           done
+      - name: Test interactive Recorder tooltip
+        run: node tests/test_chart_hover_tooltip.cjs custom_components/tylo_sauna/www/chart-hover-tooltip.js
       - name: Verify manifest, translated strings and HACS installation layout
         run: |
           python - <<'PY'
