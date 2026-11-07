@@ -74,6 +74,7 @@ async def _async_register_sauna_panel(hass: HomeAssistant) -> None:
             webcomponent_name="tylo-sauna-managed-panel",
             sidebar_title="Sauna",
             sidebar_icon="mdi:hot-tub",
+            config={"integration_version": PANEL_VERSION},
             module_url=(
                 f"/tylo_sauna/assets/{PANEL_VERSION}/managed-panel.js?v={PANEL_VERSION}"
             ),
