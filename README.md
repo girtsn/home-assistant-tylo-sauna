@@ -7,6 +7,26 @@ Local (LAN) Home Assistant integration for **Tylo Elite / Elite WiFi** controlle
 
 ---
 
+## Sauna dashboard (girtsn fork, v0.5.0)
+
+The integration creates a permanent **Sauna** item in the Home Assistant sidebar automatically, using the same implementation approach as [tado X](https://github.com/girtsn/tado-x) and [Renson Sense](https://github.com/girtsn/ha-renson-sense).
+
+* **Controls and status:** Start, standby (where supported), stop, current/target temperature, timer, lights, preset selection, current humidity, online/offline, fault diagnostics and effective controller endpoint. Actions require confirmation and call the original Home Assistant entities, preserving door-fault blocking.
+* **Long-term Recorder statistics:** actual and target temperature, actual and target humidity (when supported), and remaining session time. The new sensor entities are `sensor.<sauna>_temperature` and `sensor.<sauna>_temperature_setpoint`; exact IDs depend on the entity names configured in your installation.
+* **Single date selector:** adapted directly from the TadoX managed dashboard. Presets include Today, Yesterday, This Week/Month/Quarter/Year, Last 7/30/365 days, Last 12 months, Last 3 years and custom calendar ranges; arrow navigation is shared across all graphs and activity history.
+* **Activity timeline:** heating, light and connectivity changes within the selected range, capped to its last 7 days to avoid excessive Recorder queries. Raw history is subject to your Recorder purge setting.
+* **Automatic frontend updates:** versioned assets, no-cache HTTP paths and a manifest version check; no Ctrl+F5 or manual JavaScript resource registration should be required.
+
+**Statistics retention:** Home Assistant long-term statistics are independent of short-term Recorder purge retention. Temperature long-term trends start **after** installing this version; historical climate-entity temperature readings cannot be backfilled automatically. The original current humidity sensor was already statistics-compatible. Not all sauna controllers support humidity: a reported 0% can mean the hardware has no humidity sensor.
+
+**Upgrade existing installation:** Add this fork (`https://github.com/girtsn/home-assistant-tylo-sauna`) as a custom HACS integration repository, replacing the upstream HACS source. Keep the existing Home Assistant `tylo_sauna` config entry and entities; **do not install both forks simultaneously** because they share the same integration domain. Restart Home Assistant after updating. If the sidebar item does not appear, verify that the installed integration reports version 0.5.0 and that the sidebar is visible.
+
+**Release packaging:** The repository's `v*` tag workflow builds `tylo_sauna.zip` for HACS. Create the GitHub tag `v0.5.0` on the completed default branch to publish the release ZIP.
+
+Upstream implementation credit: [skyer/home-assistant-tylo-sauna](https://github.com/skyer/home-assistant-tylo-sauna).
+
+---
+
 ## Features
 
 For each configured controller the integration creates one device with:
@@ -108,7 +128,7 @@ For each configured controller the integration creates one device with:
 1. HACS → Integrations → Custom repositories
 2. Add:
 
-   * URL: `https://github.com/skyer/home-assistant-tylo-sauna`
+   * URL: `https://github.com/girtsn/home-assistant-tylo-sauna`
    * Category: Integration
 3. Install **Tylo Sauna**
 4. Restart Home Assistant
@@ -190,7 +210,7 @@ If the integration discovers your sauna but entities show no data or incorrect s
 1. **Enable debug recording:** Settings → Integrations → Tylo Sauna → Configure → check "Debug recording"
 2. **Reproduce the issue** — wait for the problem to occur (e.g., standby transition, connection loss)
 3. **Download diagnostics:** Settings → Integrations → Tylo Sauna → "..." → Download Diagnostics
-4. **Attach the JSON** to your [GitHub issue](https://github.com/skyer/home-assistant-tylo-sauna/issues)
+4. **Attach the JSON** to your [GitHub issue](https://github.com/girtsn/home-assistant-tylo-sauna/issues)
 
 The diagnostics file includes configuration, controller state, and a buffer of the last ~2000 UDP packets (about 1.5-2 hours of traffic). IP addresses in the packet buffer are NOT redacted (needed for network debugging); top-level config fields are redacted.
 
@@ -289,7 +309,7 @@ This creates two button entities:
 * `button.tylo_sauna_aroma_eucalyptus_on`
 * `button.tylo_sauna_aroma_eucalyptus_off`
 
-**Why experimental?** The aroma protocol was reverse-engineered from a single capture and has not been tested on real hardware. If you have a Steam controller with aroma pump, please test and report results in [GitHub Issues](https://github.com/skyer/home-assistant-tylo-sauna/issues).
+**Why experimental?** The aroma protocol was reverse-engineered from a single capture and has not been tested on real hardware. If you have a Steam controller with aroma pump, please test and report results in [GitHub Issues](https://github.com/girtsn/home-assistant-tylo-sauna/issues).
 
 ---
 
@@ -303,7 +323,7 @@ You don't need to write code — a diagnostic capture is enough to help reverse-
 2. **Use the feature** you'd like to see supported (e.g., change temperature, toggle a mode, set a schedule in the official Tylo app) — the integration will capture all UDP traffic in the background
 3. **Download diagnostics:** Settings → Integrations → Tylo Sauna → "⋮" → Download Diagnostics
 4. **Disable debug recording** (optional, but recommended — the buffer uses memory)
-5. **Open a [GitHub issue](https://github.com/skyer/home-assistant-tylo-sauna/issues)** describing what you did and attach the downloaded JSON file
+5. **Open a [GitHub issue](https://github.com/girtsn/home-assistant-tylo-sauna/issues)** describing what you did and attach the downloaded JSON file
 
 The diagnostics file contains a ring buffer of the last ~2000 UDP packets — enough to reverse-engineer new features and protocol variations.
 
