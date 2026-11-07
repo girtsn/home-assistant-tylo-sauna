@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.3] - 2026-11-07
+
+### Fixed
+
+* Resolved an intermittent blank Sauna sidebar by registering its custom element before loading the bundled date-picker module, instead of blocking module evaluation on top-level `await import(...)`.
+* Expose transient module-load failures with a visible message and a **Retry loading** button; retry URLs bypass a previously cached failed import.
+* Removed periodic background manifest polling / automatic page reload. The dashboard now uses versioned static asset URLs and a guarded one-time refresh when Home Assistant reports a changed integration version.
+* Preserved all sauna controls, temperature/humidity setpoint statistics, session ribbons, and the shared TadoX date picker.
+
 ## [0.5.2] - 2026-11-07
 
 ### Changed
