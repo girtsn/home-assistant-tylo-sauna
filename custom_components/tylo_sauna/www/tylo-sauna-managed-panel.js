@@ -463,7 +463,8 @@ class TyloSaunaManagedPanel extends HTMLElement{
     for(const el of this.shadowRoot.querySelectorAll("[data-device-action]")){
       const dev=byId.get(el.dataset.deviceAction);
       const hasTarget=!!el.dataset.entity;
-      const online=dev&&this._display(dev,"online")==="on";
+      const state=dev?this._display(dev,"online"):"—";
+      const online=state==="on"||(state==="—"&&this._display(dev,"climate")!=="—");
       el.disabled=!hasTarget||!online||this._busy.has(el.dataset.deviceAction);
       el.title=!online?"Sauna is not online":"";
     }
