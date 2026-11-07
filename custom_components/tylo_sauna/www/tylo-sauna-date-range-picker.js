@@ -194,5 +194,9 @@ class TyloSaunaDateRangePicker extends HTMLElement {
 }
 if(!customElements.get("tylo-sauna-date-range-picker"))
   customElements.define("tylo-sauna-date-range-picker",TyloSaunaDateRangePicker);
+const SA_PICKER_VERSION=(new URL(import.meta.url).searchParams.get("v")||"dev").replace(/\./g,"-");
+const SA_VERSIONED_PICKER_TAG="tylo-sauna-date-range-picker-v"+SA_PICKER_VERSION;
+if(!customElements.get(SA_VERSIONED_PICKER_TAG))
+  customElements.define(SA_VERSIONED_PICKER_TAG,class extends TyloSaunaDateRangePicker {});
 
 export { tsPresetRange };

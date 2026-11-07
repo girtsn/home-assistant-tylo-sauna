@@ -1,3 +1,17 @@
+## v0.5.4 — Self-updating Sauna sidebar
+
+- Align with Renson's stable sidebar loader: version-specific dashboard and
+  calendar picker URLs and custom-element names, with a manifest check on
+  focus, tab visibility and every minute
+- A Home Assistant browser tab can load the new dashboard without a full-page
+  reload once the 0.5.4 loader has been activated
+- Retry failed frontend module imports after Home Assistant restart using new
+  URLs and preserve the old panel while a new version is unavailable
+- Prevent a dashboard swap during active sauna commands
+- Preserve the original sidebar functionality, confirmed commands, device
+  discovery, and long-term statistics graphs
+- Preserve fixed legacy custom element names for compatibility
+
 # Changelog
 
 ## [0.5.3] - 2026-11-07

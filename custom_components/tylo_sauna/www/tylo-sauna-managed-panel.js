@@ -3,6 +3,7 @@
  * No control commands bypass the climate entity's safety checks.
  */
 const SA_ASSET_VERSION=new URL(import.meta.url).searchParams.get("v")||"dev";
+const SA_PICKER_TAG="tylo-sauna-date-range-picker-v"+SA_ASSET_VERSION.replace(/\./g,"-");
 // Register this element before loading dependencies, so transient module
 // failures show a retryable message instead of an empty sidebar.
 let tsPresetRange=null;
@@ -42,19 +43,8 @@ class TyloSaunaManagedPanel extends HTMLElement{
     }
   }
   set panel(value){
-    const oldVersion=this._panel?.config?.integration_version;
+    // The stable loader now handles version changes, without reloading HA.
     this._panel=value;
-    if(oldVersion&&value?.config?.integration_version&&
-       oldVersion!==value.config.integration_version){
-      const key="sauna-panel-reload-"+value.config.integration_version;
-      try{
-        if(window.sessionStorage.getItem(key)!=="1"){
-          window.sessionStorage.setItem(key,"1");
-          window.location.reload();return;
-        }
-      }catch(_err){/* Do not loop when session storage is unavailable. */}
-      this._announce("The Sauna panel was updated; reopen the page if it still shows old content.");
-    }
   }
   set narrow(value){this._narrow=!!value;}
   set route(value){this._route=value;}
@@ -545,7 +535,7 @@ class TyloSaunaManagedPanel extends HTMLElement{
     shell.append(grid);
     const filter=this._el("section",null,"date");
     filter.append(this._el("p","Shared history period · Same date picker as TadoX","picker-heading"));
-    const picker=this._el("tylo-sauna-date-range-picker");
+    const picker=this._el(SA_PICKER_TAG);
     picker.range=this._range;
     picker.addEventListener("date-range-changed",event=>{
       this._range=event.detail;this._loadHistory();
@@ -563,3 +553,7 @@ class TyloSaunaManagedPanel extends HTMLElement{
 }
 if(!customElements.get("tylo-sauna-managed-panel"))
   customElements.define("tylo-sauna-managed-panel",TyloSaunaManagedPanel);
+// Scoped tag avoids the browser retaining a previous dashboard class.
+const SA_PANEL_TAG="tylo-sauna-managed-panel-v"+SA_ASSET_VERSION.replace(/\./g,"-");
+if(!customElements.get(SA_PANEL_TAG))
+  customElements.define(SA_PANEL_TAG,class extends TyloSaunaManagedPanel {});
