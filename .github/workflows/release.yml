@@ -72,7 +72,7 @@ jobs:
           version="${{ steps.version.outputs.version }}"
           {
             echo 'notes<<END_RELEASE_NOTES'
-            awk -v v="$version" '$0 ~ "^## \\[" v "\\]" {found=1; next} found && /^## \\[/ {exit} found {print}' CHANGELOG.md
+            awk -v v="$version" '$0 ~ "^## \\[" v "\\]" {found=1; next} found && index($0,"## [")==1 {exit} found {print}' CHANGELOG.md
             echo 'END_RELEASE_NOTES'
           } >> "$GITHUB_OUTPUT"
 
