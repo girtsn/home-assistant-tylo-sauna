@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.5.0] - 2026-11-07
+
+### Added
+
+* Integration-managed **Sauna** sidebar dashboard, automatically installed and updated through HACS (no manual dashboard or JavaScript resource).
+* Reused the TadoX Energy-style date-range picker with calendar, previous/next navigation, presets and custom date ranges, including **Last 3 years**. One selection drives all history views.
+* Confirmed heating/standby/stop, lighting, temperature, stop-timer and favorite controls using the original entities and safety checks. Device readback includes faults and effective controller address.
+* Recorder statistics plots for actual vs target temperature, actual vs target humidity, and remaining sauna time; a recent activity log shows heating, lighting and connectivity transitions.
+* New current temperature and temperature target sensors (measurement state class, °C) for long-term statistics.
+
+### Changed
+
+* Humidity target now exposes measurement statistics, preserving its existing unique ID. Existing humidity and time-to-off measurements remain unchanged.
+* Dashboard scripts use manifest-versioned URLs, disabled browser cache headers and a background version check to avoid manual hard refresh after HACS updates.
+* Fork documentation, issue tracker and code owner now point to girtsn.
+
+### Notes
+
+* Historical temperature readings stored only as climate attributes cannot be retroactively migrated to the new long-term temperature sensor.
+* Home Assistant Recorder purges detailed entity history according to its retention configuration; long-term numeric statistics can persist for multiple years.
+* For non-humidity-capable sauna controllers the humidity entity can read 0%; this is device behavior, not a measured indoor relative humidity.
+
 ## [0.4.2] - 2026-02-06
 
 ### Fixed
