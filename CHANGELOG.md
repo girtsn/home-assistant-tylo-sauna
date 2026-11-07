@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.5.2] - 2026-11-07
+
+### Changed
+
+* Embedded sauna session activity directly under the temperature chart rather than using a separate short-retention event history section.
+* New **heating active** and **standby active** 0/1 measurement entities feed Home Assistant Recorder long-term statistics and session ribbons for all date presets, including three years.
+* Actual and target temperature and humidity continue as long-term statistics overlays; setpoints are tracked even when the sauna is off, so historical settings remain available.
+* Replaced the sidebar icon with `mdi:hot-tub`, and removed light/connectivity activity from the graph-focused history display.
+
+### Notes
+
+* Heating/standby activity over long periods is an aggregated indicator rather than an exact list of session timestamps or an accurate operating-hours counter.
+* Old mode history cannot be backfilled. Session-mode statistics start after installing v0.5.2 and need an online sauna reporting a mode.
+* The currently shown `Mode: off/heat/standby` indicator and all existing controls remain unchanged.
+
 ## [0.5.1] - 2026-11-07
 
 ### Fixed

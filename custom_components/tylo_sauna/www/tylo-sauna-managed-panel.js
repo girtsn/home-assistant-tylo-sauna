@@ -6,24 +6,22 @@ const SA_ASSET_VERSION=new URL(import.meta.url).searchParams.get("v")||"0.5.0";
 const {tsPresetRange}=await import("./tylo-sauna-date-range-picker.js?v="+encodeURIComponent(SA_ASSET_VERSION));
 const SA_KEYS=new Set(["climate","light","stop_time","time_to_off","favorite",
   "temperature","temperature_setpoint","humidity","humidity_setpoint",
-  "online","fault_code","fault_message","programs"]);
+  "online","fault_code","fault_message","programs","heating_active","standby_active"]);
 const SA_CHARTS=[
-  {key:"temperature",title:"Temperature",unit:"°C",keys:["temperature","temperature_setpoint"],
+  {key:"temperature",title:"Temperature and sessions",unit:"°C",keys:["temperature","temperature_setpoint"],
     names:["Actual","Target"],colors:["#e57347","#edb95e"]},
   {key:"humidity",title:"Relative humidity",unit:"%",keys:["humidity","humidity_setpoint"],
     names:["Actual","Target"],colors:["#168f91","#a080c5"]},
   {key:"time_to_off",title:"Time remaining",unit:"min",keys:["time_to_off"],
     names:["Countdown"],colors:["#5083bb"]}
 ];
-const SA_HISTORY_LIMIT_DAYS=7;
 class TyloSaunaManagedPanel extends HTMLElement{
   constructor(){
     super();
     this.attachShadow({mode:"open"});
     this._hass=null;this._ready=false;this._loading=false;
     this._devices=[];this._range=tsPresetRange("last7");
-    this._chartResults={};this._errors={};this._activity=[];
-    this._activityInfo="";this._busy=new Set();this._notice="";
+    this._chartResults={};this._errors={};this._busy=new Set();this._notice="";
     this._request=0;this._chartRefresh=0;this._versionTimer=null;
   }
   set hass(value){
@@ -153,8 +151,8 @@ class TyloSaunaManagedPanel extends HTMLElement{
       ".plot{min-height:190px}.plot svg{width:100%;max-height:295px;display:block}",
       ".legend{display:flex;gap:9px;flex-wrap:wrap;font-size:12px;margin:0 0 6px}",
       ".legend span{display:flex;align-items:center;gap:5px}.swatch{width:16px;height:3px;border-radius:3px}",
-      ".history{margin-top:16px}.event{display:flex;gap:12px;padding:9px 0;border-bottom:1px solid var(--divider-color,#ddd);font-size:13px}",
-      ".event time{white-space:nowrap;color:var(--secondary-text-color,#777);font-size:12px}",
+      ".session-band{margin-top:12px;padding-top:9px;border-top:1px solid var(--divider-color,#ddd)}",
+      ".session-band svg{width:100%;height:auto;display:block;overflow:visible}",
       ".date{margin:14px 0}.picker-heading{font-size:13px;margin:0 0 9px;color:var(--secondary-text-color,#777)}",
       ".foot{margin-top:16px}",
       "@media(max-width:650px){.shell{padding:12px}.card{padding:14px}.event{display:block}.event time{display:block;margin-bottom:3px}}"
@@ -284,7 +282,8 @@ class TyloSaunaManagedPanel extends HTMLElement{
     if(!this._hass||!this._ready)return;
     const token=++this._request;this._chartRefresh=Date.now();
     const start=this._range.start,end=this._range.end;
-    const ids=this._devices.flatMap(d=>SA_CHARTS.flatMap(m=>m.keys.map(k=>d.entities[k]).filter(Boolean)));
+    const plotKeys=[...new Set([...SA_CHARTS.flatMap(m=>m.keys),"heating_active","standby_active"])];
+    const ids=this._devices.flatMap(d=>plotKeys.map(k=>d.entities[k]).filter(Boolean));
     const unique=[...new Set(ids.filter(id=>this._hass.states[id]?.attributes?.state_class==="measurement"))];
     for(const meta of SA_CHARTS){this._errors[meta.key]="Loading statistics…";this._drawChart(meta);}
     if(unique.length){
@@ -306,64 +305,6 @@ class TyloSaunaManagedPanel extends HTMLElement{
     }
     if(token!==this._request)return;
     for(const meta of SA_CHARTS)this._drawChart(meta);
-    await this._loadActivities(token,start,end);
-  }
-  async _loadActivities(token,start,end){
-    const ids=this._devices.flatMap(d=>["climate","light","online"].map(k=>d.entities[k]).filter(Boolean));
-    const endMs=Math.min(Date.parse(end),Date.now());
-    const fromMs=Math.max(Date.parse(start),endMs-SA_HISTORY_LIMIT_DAYS*86400000);
-    this._activityInfo=Date.parse(end)-Date.parse(start)>SA_HISTORY_LIMIT_DAYS*86400000
-      ?"Activity shows up to the final 7 days of the selected range. Recorder may retain less raw history."
-      :"Activity follows the selected dates, subject to Recorder retention.";
-    if(!ids.length||fromMs>=endMs){this._activity=[];this._drawActivity();return;}
-    try{
-      const records=await this._hass.callWS({type:"history/history_during_period",
-        start_time:new Date(fromMs).toISOString(),end_time:new Date(endMs).toISOString(),
-        entity_ids:ids,minimal_response:false,no_attributes:true});
-      if(token!==this._request)return;
-      const byId=new Map();
-      for(const dev of this._devices)for(const k of ["climate","light","online"]){
-        if(dev.entities[k])byId.set(dev.entities[k],{name:dev.name,key:k});
-      }
-      const events=[];
-      for(const group of (Array.isArray(records)?records:[])){
-        let last=null;
-        for(const row of (Array.isArray(group)?group:[])){
-          const id=row.entity_id,meta=byId.get(id);
-          if(!meta)continue;
-          const state=row.state,ts=row.last_changed||row.last_updated;
-          if(!["unknown","unavailable"].includes(state)&&last!==null&&last!==state&&ts){
-            let action;
-            if(meta.key==="climate")action=state==="heat"?"Heating started":state==="off"?"Heating stopped":state==="heat_cool"?"Standby activated":"Mode: "+state;
-            if(meta.key==="light")action=state==="on"?"Lights turned on":"Lights turned off";
-            if(meta.key==="online")action=state==="on"?"Controller online":"Controller offline";
-            if(action)events.push({ts,name:meta.name,action});
-          }
-          last=state;
-        }
-      }
-      this._activity=events.sort((a,b)=>Date.parse(b.ts)-Date.parse(a.ts)).slice(0,35);
-      this._drawActivity();
-    }catch(err){
-      if(token!==this._request)return;
-      this._activity=[];this._activityInfo="Activity history unavailable: "+(err?.message||String(err));
-      this._drawActivity();
-    }
-  }
-  _drawActivity(){
-    const el=this.shadowRoot?.querySelector("[data-activity]");
-    if(!el)return;
-    el.replaceChildren();
-    el.append(this._el("p",this._activityInfo,"subtle"));
-    if(!this._activity.length){
-      el.append(this._el("p","No heating, light or connection transitions recorded in this interval.","subtle"));
-      return;
-    }
-    for(const ev of this._activity){
-      const row=this._el("div",null,"event");
-      row.append(this._el("time",new Date(ev.ts).toLocaleString()));
-      row.append(this._el("span",ev.name+" · "+ev.action));el.append(row);
-    }
   }
   _drawChart(meta){
     const el=this.shadowRoot?.querySelector('[data-plot="'+meta.key+'"]');
@@ -428,8 +369,86 @@ class TyloSaunaManagedPanel extends HTMLElement{
         "stroke-dasharray":s.dash?"7 4":"none","clip-path":"url(#"+clipId+")"}));
     }
     el.append(svg);
+    if(meta.key==="temperature")this._appendSessionBands(el,start,end);
     el.append(this._el("p","Recorder "+this._period()+" averages · "+meta.unit+
       " · Existing data only; gaps are not interpolated.","subtle"));
+  }
+  _bucketEnd(startMs){
+    // Long-term Recorder rows are one 5-minute/hour/day/week/month bucket.
+    // Using the bucket width prevents drawing across unrecorded intervals.
+    const period=this._period();
+    if(period==="month"){
+      const d=new Date(startMs);
+      d.setUTCMonth(d.getUTCMonth()+1);
+      return d.getTime();
+    }
+    const duration={"5minute":300000,hour:3600000,day:86400000,week:604800000}[period];
+    return startMs+(duration||3600000);
+  }
+  _appendSessionBands(temperaturePlot,start,end){
+    // This ribbon belongs to the temperature chart, not a separate activity
+    // card. It uses exactly the same Recorder long-term statistics as the
+    // temperature and humidity curves and therefore supports the 3-year picker.
+    const block=this._el("div",null,"session-band");
+    block.append(this._el("h3","Sessions · Heating and standby",""));
+    const devices=this._devices.map(dev=>{
+      const items=["heating_active","standby_active"].map((key,index)=>{
+        const id=dev.entities[key];
+        const entries=id&&Array.isArray(this._chartResults[id])?this._chartResults[id]:[];
+        return {key,index,entries:entries
+          .filter(row=>Number.isFinite(Number(row.start))&&row.mean!=null&&Number.isFinite(Number(row.mean)))
+          .map(row=>({start:Number(row.start),mean:Math.max(0,Math.min(1,Number(row.mean)))}))
+          .sort((a,b)=>a.start-b.start)};
+      });
+      return {name:dev.name,items};
+    });
+    if(!devices.some(dev=>dev.items.some(item=>item.entries.length))){
+      block.append(this._el("p",
+        "No long-term session-mode statistics collected yet. Heating and standby history will accumulate after updating the integration.",
+        "subtle"));
+      temperaturePlot.append(block);return;
+    }
+    const legend=this._el("div",null,"legend");
+    for(const [label,color] of [["Heating","#d96b38"],["Standby","#8269bd"]]){
+      const item=this._el("span");
+      const swatch=this._el("i",null,"swatch");swatch.style.background=color;
+      item.append(swatch,this._el("span",label));legend.append(item);
+    }
+    block.append(legend);
+    const W=890,L=57,R=15,trackHeight=18,trackGap=12;
+    const svg=this._svg("svg",{viewBox:"0 0 "+W+" "+(devices.length*(trackHeight+trackGap)+10),
+      role:"img","aria-label":"Session heating and standby mode statistics"});
+    const X=x=>L+(x-start)/(end-start)*(W-L-R);
+    devices.forEach((dev,i)=>{
+      const y=5+i*(trackHeight+trackGap);
+      const label=this._svg("text",{x:L-7,y:y+13,"text-anchor":"end",fill:"var(--secondary-text-color,#888)","font-size":11});
+      label.textContent=devices.length===1?"Mode":dev.name.slice(0,8);
+      svg.append(label);
+      svg.append(this._svg("rect",{x:L,y,width:W-L-R,height:trackHeight,rx:3,
+        fill:"var(--secondary-background-color,#eeeeee)"}));
+      for(const item of dev.items){
+        const color=item.index===0?"#d96b38":"#8269bd";
+        for(const record of item.entries){
+          const from=Math.max(start,record.start);
+          const to=Math.min(end,this._bucketEnd(record.start));
+          if(to<=from||record.mean<=0)continue;
+          const x=X(from),width=X(to)-x;
+          if(width<=0)continue;
+          const rect=this._svg("rect",{x,y:y+item.index*9,width:Math.max(0.7,width),height:9,
+            fill:color,opacity:(0.2+0.8*record.mean).toFixed(2)});
+          const tip=this._svg("title");
+          tip.textContent=dev.name+" · "+(item.index===0?"Heating":"Standby")+
+            " · "+new Date(record.start).toLocaleString()+" · "+
+            Math.round(record.mean*100)+"% mean of recorded 0/1 states (not exact runtime)";
+          rect.append(tip);svg.append(rect);
+        }
+      }
+    });
+    block.append(svg);
+    block.append(this._el("p","Session shading is aggregated from numeric mode readings. "+
+      "Short periods show more precise intervals; monthly/annual views show approximate activity, "+
+      "not exact start/stop times or operating hours.","subtle"));
+    temperaturePlot.append(block);
   }
   _updateLive(){
     if(!this._hass||!this._ready)return;
@@ -497,14 +516,10 @@ class TyloSaunaManagedPanel extends HTMLElement{
     const charts=this._el("div",null,"charts");
     for(const meta of SA_CHARTS)charts.append(this._chartCard(meta));
     shell.append(charts);
-    const activity=this._el("section",null,"card history");
-    activity.append(this._el("h2","Heating, lighting and connectivity history"));
-    const body=this._el("div");body.dataset.activity="";activity.append(body);
-    shell.append(activity);
     shell.append(this._el("p","Actions use Home Assistant's existing entities and safety checks. Recorder must be enabled for history. "+ 
-      "Numeric statistics can persist for years; activity events depend on short-term Recorder retention. "+
+      "All three charts use long-term Recorder statistics, including target settings and the heating/standby session band. "+
       "The dashboard is installed with this integration and refreshed on version updates.","subtle foot"));
-    root.append(shell);this._updateLive();this._drawActivity();
+    root.append(shell);this._updateLive();
     for(const meta of SA_CHARTS)this._drawChart(meta);
   }
 }

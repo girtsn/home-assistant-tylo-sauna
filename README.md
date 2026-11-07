@@ -7,21 +7,21 @@ Local (LAN) Home Assistant integration for **Tylo Elite / Elite WiFi** controlle
 
 ---
 
-## Sauna dashboard (girtsn fork, v0.5.1)
+## Sauna dashboard (girtsn fork, v0.5.2)
 
 The integration creates a permanent **Sauna** item in the Home Assistant sidebar automatically, using the same implementation approach as [tado X](https://github.com/girtsn/tado-x) and [Renson Sense](https://github.com/girtsn/ha-renson-sense).
 
 * **Controls and status:** Start, standby (where supported), stop, current/target temperature, timer, lights, preset selection, current humidity, online/offline, fault diagnostics and effective controller endpoint. Actions require confirmation and call the original Home Assistant entities, preserving door-fault blocking.
 * **Long-term Recorder statistics:** actual and target temperature, actual and target humidity (when supported), and remaining session time. The new sensor entities are `sensor.<sauna>_temperature` and `sensor.<sauna>_temperature_setpoint`; exact IDs depend on the entity names configured in your installation.
 * **Single date selector:** adapted directly from the TadoX managed dashboard. Presets include Today, Yesterday, This Week/Month/Quarter/Year, Last 7/30/365 days, Last 12 months, Last 3 years and custom calendar ranges; arrow navigation is shared across all graphs and activity history.
-* **Activity timeline:** heating, light and connectivity changes within the selected range, capped to its last 7 days to avoid excessive Recorder queries. Raw history is subject to your Recorder purge setting.
+* **Session overlay in the temperature graph:** the integration adds `heating active` and `standby active` numeric 0/1 sensors with `measurement` state class. Their Recorder statistics render session activity as a ribbon under the temperature curve for every date range, including three years. Historical means are approximate activity indicators, not exact start/stop timestamps or a reliable count of operating hours. No light/connectivity timeline card.
 * **Automatic frontend updates:** versioned assets, no-cache HTTP paths and a manifest version check; no Ctrl+F5 or manual JavaScript resource registration should be required.
 
-**Statistics retention:** Home Assistant long-term statistics are independent of short-term Recorder purge retention. Temperature long-term trends start **after** installing this version; historical climate-entity temperature readings cannot be backfilled automatically. The original current humidity sensor was already statistics-compatible. Not all sauna controllers support humidity: a reported 0% can mean the hardware has no humidity sensor.
+**Statistics retention:** Both target temperature and target humidity are recorded as long-term measurement statistics as well as current temperature/humidity. Target lines remain visible on the curves, while the heating/standby ribbon highlights when they were used. Home Assistant long-term statistics are independent of short-term Recorder purge retention. Temperature long-term trends start **after** installing this version; historical climate-entity temperature readings cannot be backfilled automatically. The original current humidity sensor was already statistics-compatible. Not all sauna controllers support humidity: a reported 0% can mean the hardware has no humidity sensor.
 
-**Upgrade existing installation:** Add this fork (`https://github.com/girtsn/home-assistant-tylo-sauna`) as a custom HACS integration repository, replacing the upstream HACS source. Keep the existing Home Assistant `tylo_sauna` config entry and entities; **do not install both forks simultaneously** because they share the same integration domain. Restart Home Assistant after updating. If the sidebar item does not appear, verify that the installed integration reports version 0.5.0 and that the sidebar is visible.
+**Upgrade existing installation:** Add this fork (`https://github.com/girtsn/home-assistant-tylo-sauna`) as a custom HACS integration repository, replacing the upstream HACS source. Keep the existing Home Assistant `tylo_sauna` config entry and entities; **do not install both forks simultaneously** because they share the same integration domain. Restart Home Assistant after updating. If the sidebar item does not appear, verify that the installed integration reports version 0.5.2 and that the sidebar is visible.
 
-**Release packaging:** The fork validates Python, frontend JavaScript and JSON on pushes to `main`. After successful validation, the release workflow publishes a normal GitHub Release tagged `v0.5.1` from the validated commit. HACS uses GitHub's source archive (the same approach as the Renson and TadoX forks), so no attached `tylo_sauna.zip` is required. GitHub Actions must be enabled on your fork.
+**Release packaging:** The fork validates Python, frontend JavaScript and JSON on pushes to `main`. After successful validation, the release workflow publishes a normal GitHub Release tagged `v0.5.2` from the validated commit. HACS uses GitHub's source archive (the same approach as the Renson and TadoX forks), so no attached `tylo_sauna.zip` is required. GitHub Actions must be enabled on your fork.
 
 Upstream implementation credit: [skyer/home-assistant-tylo-sauna](https://github.com/skyer/home-assistant-tylo-sauna).
 

@@ -12,6 +12,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 
 from . import DOMAIN
+from .controller import MODE_OFF, MODE_HEAT, MODE_STANDBY
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,6 +34,8 @@ async def async_setup_entry(
             TyloSaunaPrograms(controller),
             TyloSaunaTemperature(controller),
             TyloSaunaTemperatureSetpoint(controller),
+            TyloSaunaHeatingActive(controller),
+            TyloSaunaStandbyActive(controller),
             TyloSaunaHumidity(controller),
             TyloSaunaHumiditySetpoint(controller),
         ]
@@ -240,6 +243,68 @@ class TyloSaunaTemperatureSetpoint(_BaseTyloSensor):
     @property
     def native_value(self) -> float | None:
         return self._controller.t_set_c
+
+
+
+class _BaseTyloActivitySensor(_BaseTyloSensor):
+    """Long-term numeric mode indicator: 1 active, 0 inactive, None unknown.
+
+    Unlike the climate entity's enum state, this value is eligible for
+    Home Assistant Recorder long-term statistics. Historical means indicate
+    approximate activity in a bucket, not exact session durations.
+    """
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, controller, *, mode: int, suffix: str, label: str, icon: str) -> None:
+        super().__init__(controller)
+        self._mode = mode
+        self._attr_name = f"{controller.name} {label}"
+        self._attr_unique_id = f"tylo_sauna_{self._device_id}_{suffix}"
+        self._attr_icon = icon
+
+    @property
+    def available(self) -> bool:
+        return bool(self._controller.is_online())
+
+    @property
+    def native_value(self) -> int | None:
+        mode = getattr(self._controller, "current_mode", None)
+        if mode in (MODE_OFF, MODE_HEAT, MODE_STANDBY):
+            return int(mode == self._mode)
+
+        # An older firmware can report only the basic heat/stop state.
+        # Do not manufacture a standby state if no mode was reported.
+        if self._mode == MODE_HEAT:
+            legacy_heat = getattr(self._controller, "heat", None)
+            return int(legacy_heat) if legacy_heat is not None else None
+        return None
+
+
+class TyloSaunaHeatingActive(_BaseTyloActivitySensor):
+    """Long-term record of reported heating sessions (0/1)."""
+
+    def __init__(self, controller) -> None:
+        super().__init__(
+            controller,
+            mode=MODE_HEAT,
+            suffix="heating_active",
+            label="heating active",
+            icon="mdi:fire",
+        )
+
+
+class TyloSaunaStandbyActive(_BaseTyloActivitySensor):
+    """Long-term record of controller standby mode (0/1)."""
+
+    def __init__(self, controller) -> None:
+        super().__init__(
+            controller,
+            mode=MODE_STANDBY,
+            suffix="standby_active",
+            label="standby active",
+            icon="mdi:power-sleep",
+        )
 
 
 class TyloSaunaHumidity(_BaseTyloSensor):
