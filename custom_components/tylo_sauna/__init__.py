@@ -44,6 +44,11 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     await hass.http.async_register_static_paths(
         [
             StaticPathConfig(
+                "/tylo_sauna/panel-loader.js",
+                str(root / "www" / "tylo-sauna-loader.js"),
+                cache_headers=False,
+            ),
+            StaticPathConfig(
                 f"/tylo_sauna/assets/{PANEL_VERSION}/managed-panel.js",
                 str(root / "www" / "tylo-sauna-managed-panel.js"),
                 cache_headers=False,
@@ -71,13 +76,11 @@ async def _async_register_sauna_panel(hass: HomeAssistant) -> None:
         await panel_custom.async_register_panel(
             hass,
             frontend_url_path=PANEL_PATH,
-            webcomponent_name="tylo-sauna-managed-panel",
+            webcomponent_name="tylo-sauna-loader-panel",
             sidebar_title="Sauna",
             sidebar_icon="mdi:hot-tub",
             config={"integration_version": PANEL_VERSION},
-            module_url=(
-                f"/tylo_sauna/assets/{PANEL_VERSION}/managed-panel.js?v={PANEL_VERSION}"
-            ),
+            module_url="/tylo_sauna/panel-loader.js",
             require_admin=False,
         )
     except (ValueError, RuntimeError):
