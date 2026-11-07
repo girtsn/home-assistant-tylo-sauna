@@ -49,7 +49,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 cache_headers=False,
             ),
             StaticPathConfig(
-                f"/tylo_sauna/assets/{PANEL_VERSION}/date-range-picker.js",
+                f"/tylo_sauna/assets/{PANEL_VERSION}/tylo-sauna-date-range-picker.js",
                 str(root / "www" / "tylo-sauna-date-range-picker.js"),
                 cache_headers=False,
             ),
