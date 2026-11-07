@@ -1,6 +1,10 @@
 import asyncio
 import logging
+import json
+from pathlib import Path
 
+from homeassistant.components import frontend, panel_custom
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.core import HomeAssistant
@@ -17,6 +21,11 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+PANEL_PATH = "tylo-sauna"
+# Use installed manifest version so HACS upgrades change the asset URLs.
+PANEL_VERSION = json.loads(
+    (Path(__file__).parent / "manifest.json").read_text(encoding="utf-8")
+)["version"]
 
 # Важно: platform `button` подключаем, но сущности создаём только при включённых экспериментальных опциях,
 # чтобы это не влияло на обычных пользователей.
@@ -30,8 +39,51 @@ PLATFORMS = ["climate", "light", "number", "sensor", "select", "binary_sensor", 
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    """Integration init (no YAML)."""
+    """Register no-cache, versioned frontend files (no manual Lovelace setup)."""
+    root = Path(__file__).parent
+    await hass.http.async_register_static_paths(
+        [
+            StaticPathConfig(
+                f"/tylo_sauna/assets/{PANEL_VERSION}/managed-panel.js",
+                str(root / "www" / "tylo-sauna-managed-panel.js"),
+                cache_headers=False,
+            ),
+            StaticPathConfig(
+                f"/tylo_sauna/assets/{PANEL_VERSION}/date-range-picker.js",
+                str(root / "www" / "tylo-sauna-date-range-picker.js"),
+                cache_headers=False,
+            ),
+            StaticPathConfig(
+                "/tylo_sauna/manifest.json",
+                str(root / "manifest.json"),
+                cache_headers=False,
+            ),
+        ]
+    )
     return True
+
+
+async def _async_register_sauna_panel(hass: HomeAssistant) -> None:
+    """Create one sidebar entry for all configured Tylö controllers."""
+    if frontend.async_panel_exists(hass, PANEL_PATH):
+        return
+    try:
+        await panel_custom.async_register_panel(
+            hass,
+            frontend_url_path=PANEL_PATH,
+            webcomponent_name="tylo-sauna-managed-panel",
+            sidebar_title="Sauna",
+            sidebar_icon="mdi:sauna",
+            module_url=(
+                f"/tylo_sauna/assets/{PANEL_VERSION}/managed-panel.js?v={PANEL_VERSION}"
+            ),
+            require_admin=False,
+        )
+    except (ValueError, RuntimeError):
+        _LOGGER.warning(
+            "Could not register integration-managed Tylo Sauna dashboard",
+            exc_info=True,
+        )
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -146,6 +198,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Forward the entry to platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    await _async_register_sauna_panel(hass)
 
     return True
 
@@ -179,5 +232,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             except Exception:  # noqa: BLE001
                 pass
             domain_data.pop("_runtime_discovery", None)
+
+        if not any(not str(key).startswith("_") for key in domain_data):
+            frontend.async_remove_panel(hass, PANEL_PATH, warn_if_unknown=False)
 
     return unload_ok
