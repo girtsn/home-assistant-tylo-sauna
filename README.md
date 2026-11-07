@@ -7,7 +7,7 @@ Local (LAN) Home Assistant integration for **Tylo Elite / Elite WiFi** controlle
 
 ---
 
-## Sauna dashboard (girtsn fork, v0.5.0)
+## Sauna dashboard (girtsn fork, v0.5.1)
 
 The integration creates a permanent **Sauna** item in the Home Assistant sidebar automatically, using the same implementation approach as [tado X](https://github.com/girtsn/tado-x) and [Renson Sense](https://github.com/girtsn/ha-renson-sense).
 
@@ -21,7 +21,7 @@ The integration creates a permanent **Sauna** item in the Home Assistant sidebar
 
 **Upgrade existing installation:** Add this fork (`https://github.com/girtsn/home-assistant-tylo-sauna`) as a custom HACS integration repository, replacing the upstream HACS source. Keep the existing Home Assistant `tylo_sauna` config entry and entities; **do not install both forks simultaneously** because they share the same integration domain. Restart Home Assistant after updating. If the sidebar item does not appear, verify that the installed integration reports version 0.5.0 and that the sidebar is visible.
 
-**Release packaging:** The repository's `v*` tag workflow builds `tylo_sauna.zip` for HACS. Create the GitHub tag `v0.5.0` on the completed default branch to publish the release ZIP.
+**Release packaging:** The fork validates Python, frontend JavaScript and JSON on pushes to `main`. After successful validation, the release workflow publishes a normal GitHub Release tagged `v0.5.1` from the validated commit. HACS uses GitHub's source archive (the same approach as the Renson and TadoX forks), so no attached `tylo_sauna.zip` is required. GitHub Actions must be enabled on your fork.
 
 Upstream implementation credit: [skyer/home-assistant-tylo-sauna](https://github.com/skyer/home-assistant-tylo-sauna).
 

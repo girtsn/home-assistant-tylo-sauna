@@ -1,0 +1,51 @@
+name: Validate Tylo Sauna
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Verify integration syntax, assets and metadata
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Validate Python syntax
+        run: python -m compileall -q custom_components/tylo_sauna
+      - name: Validate dashboard JS modules
+        run: |
+          set -euo pipefail
+          for script in custom_components/tylo_sauna/www/*.js; do
+            node --input-type=module --check < "$script"
+          done
+      - name: Verify manifest, translated strings and HACS installation layout
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import re
+          root = Path("custom_components/tylo_sauna")
+          manifest = json.loads((root / "manifest.json").read_text())
+          hacs = json.loads(Path("hacs.json").read_text())
+          assert manifest["domain"] == "tylo_sauna"
+          assert re.fullmatch(r"\d+\.\d+\.\d+", manifest["version"])
+          assert not hacs.get("zip_release"), "HACS must use the release source, not a missing ZIP asset"
+          for file in [root / "strings.json", *sorted((root / "translations").glob("*.json"))]:
+              json.loads(file.read_text())
+          for file in ["tylo-sauna-managed-panel.js", "tylo-sauna-date-range-picker.js"]:
+              assert (root / "www" / file).is_file(), file
+          init = (root / "__init__.py").read_text()
+          assert "tylo-sauna-managed-panel" in (root / "www" / "tylo-sauna-managed-panel.js").read_text()
+          assert 'cache_headers=False' in init
+          print(f"Tylo Sauna v{manifest['version']}: source layout is valid")
+          PY

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.1] - 2026-11-07
+
+### Fixed
+
+* **HACS installation:** removed `zip_release: true` and `filename: tylo_sauna.zip` so HACS installs from the GitHub source archive instead of requiring an uploaded ZIP asset, matching the working Renson Sense and TadoX forks.
+* **Stable release discovery:** added CI validation on `main` and an automated, validation-gated GitHub Release workflow for the version declared in the integration manifest. Publishing only from the current validated commit avoids releasing unvalidated or stale builds.
+* Updated documentation to explain how releases appear in HACS and how to enable GitHub Actions on a new fork.
+
 ## [0.5.0] - 2026-11-07
 
 ### Added
