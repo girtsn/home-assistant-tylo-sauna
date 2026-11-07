@@ -1,3 +1,4 @@
+import {attachRecorderChartTooltip} from "./chart-hover-tooltip.js";
 /* Tylo Sauna integration-managed Home Assistant sidebar.
  * TadoX-style shared calendar, Recorder statistics, and existing HA services.
  * No control commands bypass the climate entity's safety checks.
@@ -389,6 +390,10 @@ class TyloSaunaManagedPanel extends HTMLElement{
         "stroke-dasharray":s.dash?"7 4":"none","clip-path":"url(#"+clipId+")"}));
     }
     el.append(svg);
+    attachRecorderChartTooltip(el,svg,
+      series.map(s=>({label:s.label,color:s.color,points:s.values})),
+      {start,end,width:W,height:H,left:L,right:R,top:T,bottom:B,
+        yFor:Y,period:this._period(),unit:meta.unit});
     if(meta.key==="temperature")this._appendSessionBands(el,start,end);
     el.append(this._el("p","Recorder "+this._period()+" averages · "+meta.unit+
       " · Existing data only; gaps are not interpolated.","subtle"));
