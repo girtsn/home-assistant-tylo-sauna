@@ -90,7 +90,7 @@ async function main(){
   online=false;
   await panel._check();
   assert.equal(panel._active,previous);
-  assert.ok(panel._status.textContent.includes("current version"));
+  assert.ok(panel._status.textContent.includes("previous version"));
   online=true;
   await panel._check();
   assert.equal(panel._version,"0.5.7");
