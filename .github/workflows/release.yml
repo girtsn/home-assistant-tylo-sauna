@@ -2,6 +2,8 @@ name: Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
   workflow_dispatch:
@@ -11,36 +13,86 @@ permissions:
 
 jobs:
   release:
-    name: Build and publish GitHub Release
+    name: Validate, tag and publish stable HACS release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Build zip
+      - name: Identify manifest version
+        id: version
+        shell: bash
         run: |
+          set -euo pipefail
+          version="$(python3 -c 'import json; print(json.load(open("custom_components/tylo_sauna/manifest.json"))["version"])')"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Expected a stable semantic version in manifest.json" >&2
+            exit 1
+          fi
+          tag="v$version"
+          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" != "$tag" ]]; then
+            echo "Git tag and integration manifest disagree" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if [[ "${GITHUB_REF_TYPE}" == "tag" || "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          elif git show-ref --verify --quiet "refs/tags/$tag"; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "Stable tag $tag already exists; no duplicate release needed."
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate Python and frontend syntax
+        if: steps.version.outputs.publish == 'true'
+        run: |
+          python3 -m compileall -q custom_components/tylo_sauna
+          node --check --input-type=module < custom_components/tylo_sauna/www/tylo-sauna-managed-panel.js
+          node --check --input-type=module < custom_components/tylo_sauna/www/tylo-sauna-date-range-picker.js
+
+      - name: Build HACS ZIP
+        if: steps.version.outputs.publish == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
           mkdir -p dist
-          # IMPORTANT: zip must contain files at ROOT (no folder wrapper)
-          # HACS extracts zip INTO custom_components/tylo_sauna/
           cd custom_components/tylo_sauna
-          zip -r "../../dist/tylo_sauna.zip" . -x "*.pyc" -x "__pycache__/*"
+          zip -qr "../../dist/tylo_sauna.zip" . -x "*.pyc" -x "*/__pycache__/*"
 
-      - name: Extract release notes from CHANGELOG
+      - name: Extract release notes
+        if: steps.version.outputs.publish == 'true'
         id: changelog
+        shell: bash
         run: |
-          # Extract section for current version from CHANGELOG.md
-          # Finds content between ## [vX.Y.Z] and next ## [
-          VERSION="${GITHUB_REF_NAME#v}"
-          NOTES=$(awk "/^## \\[$VERSION\\]/{flag=1; next} /^## \\[/{flag=0} flag" CHANGELOG.md)
-          # Handle multi-line output for GitHub Actions
-          echo "notes<<EOF" >> $GITHUB_OUTPUT
-          echo "$NOTES" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          version="${{ steps.version.outputs.version }}"
+          {
+            echo 'notes<<END_RELEASE_NOTES'
+            awk -v v="$version" '$0 ~ "^## \\[" v "\\]" {found=1; next} found && /^## \\[/ {exit} found {print}' CHANGELOG.md
+            echo 'END_RELEASE_NOTES'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create version tag
+        if: steps.version.outputs.publish == 'true' && github.ref_type != 'tag'
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@users.noreply.github.com
+          if ! git show-ref --verify --quiet "refs/tags/$TAG"; then
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
 
       - name: Publish GitHub Release
+        if: steps.version.outputs.publish == 'true'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           files: dist/tylo_sauna.zip
           body: ${{ steps.changelog.outputs.notes }}
-
-
