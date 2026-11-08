@@ -32,6 +32,7 @@ class TyloSaunaManagedPanel extends HTMLElement{
   }
   set hass(value){
     this._hass=value;
+    if(this._picker?.isConnected)this._picker.hass=value;
     if(!this._assetsReady){
       this._ensureAssets();
       if(value&&this.isConnected)this._render();
@@ -575,6 +576,8 @@ class TyloSaunaManagedPanel extends HTMLElement{
     filter.append(this._el("p","Shared history period · Same date picker as TadoX","picker-heading"));
     const picker=this._el(SA_PICKER_TAG);
     picker.range=this._range;
+      picker.hass=this._hass;
+      this._picker=picker;
     picker.addEventListener("date-range-changed",event=>{
       this._range=event.detail;this._loadHistory();
     });
