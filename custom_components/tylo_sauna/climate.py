@@ -34,7 +34,7 @@ async def async_setup_entry(
 
 class TyloSaunaClimate(ClimateEntity):
     _attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
-    _attr_temperature_unit = UnitOfTemperature.CELSIUS
+    _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_min_temp = 40.0
     _attr_max_temp = 110.0
 
@@ -85,11 +85,11 @@ class TyloSaunaClimate(ClimateEntity):
         return HVACMode.HEAT if heat else HVACMode.OFF
 
     @property
-    def current_temperature(self) -> float | None:
+    def native_current_temperature(self) -> float | None:
         return self._controller.t_cur_c
 
     @property
-    def target_temperature(self) -> float | None:
+    def native_target_temperature(self) -> float | None:
         return self._controller.t_set_c
 
     @property
