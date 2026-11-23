@@ -64,7 +64,7 @@ class TyloSaunaManagedPanel extends HTMLElement{
         tsPresetRange=picker.tsPresetRange;
         if(typeof tsPresetRange!=="function")
           throw new Error("Date picker did not export tsPresetRange");
-        this._range??=tsPresetRange("last7");
+        this._range??=tsPresetRange("last7",new Date(),this._hass);
         this._assetsReady=true;
         if(this._hass&&!this._ready&&!this._loading)this._discover();
       })
