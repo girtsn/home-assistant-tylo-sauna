@@ -1,8 +1,12 @@
-/* Shared Energy-style calendar picker. Dates are HA-local calendar days,
- * independent of the viewing browser's timezone (including DST transitions).
- * Civil calendar arithmetic is performed on UTC-midnight surrogate Date objects.
+/* Shared Energy-style calendar picker. Honor HA user-profile time zone:
+ * "local" = this viewing device; "server" = HA configured location.
+ * UTC-midnight surrogate civil dates preserve correct 23/25h DST boundaries.
  */
-const tsZone=hass=>hass?.config?.time_zone||"UTC";
+const tsZone=hass=>{
+  const server=hass?.config?.time_zone||"UTC";
+  if(hass?.locale?.time_zone!=="local")return server;
+  return Intl.DateTimeFormat().resolvedOptions().timeZone||server;
+};
 const tsCivil=(instant,zone)=>{
   const values=Object.fromEntries(new Intl.DateTimeFormat("en-GB",{
     timeZone:zone,year:"numeric",month:"2-digit",day:"2-digit"
@@ -78,8 +82,20 @@ class TyloSaunaDateRangePicker extends HTMLElement {
   set hass(value){
     const previous=this._hass;
     this._hass=value;
-    if((!previous||tsZone(previous)!==tsZone(value)||
-      tsFirstWeekday(previous)!==tsFirstWeekday(value))&&this._range?.preset==="week"){
+    const zoneChanged=previous&&tsZone(previous)!==tsZone(value);
+    if(zoneChanged&&this._range?.preset!=="last24"){
+      // Preserve the chosen *calendar dates* when a user switches between
+      // local/server time. Recompute the UTC instants for the new zone.
+      const start=tsCivil(new Date(this._range.start),tsZone(previous));
+      const end=tsCivil(new Date(this._range.end),tsZone(previous));
+      this._range={...this._range,
+        start:tsToUtc(start,value),end:tsToUtc(end,value)};
+      this._month=tsToday(value);
+      this.dispatchEvent(new CustomEvent("date-range-changed",{
+        detail:this._range,bubbles:true,composed:true
+      }));
+    }else if((!previous||tsFirstWeekday(previous)!==tsFirstWeekday(value))
+      &&this._range?.preset==="week"){
       this._range=tsPresetRange("week",new Date(),value);
       this._month=tsToday(value);
       this.dispatchEvent(new CustomEvent("date-range-changed",{
@@ -276,4 +292,4 @@ const SA_VERSIONED_PICKER_TAG="tylo-sauna-date-range-picker-v"+SA_PICKER_VERSION
 if(!customElements.get(SA_VERSIONED_PICKER_TAG))
   customElements.define(SA_VERSIONED_PICKER_TAG,class extends TyloSaunaDateRangePicker {});
 
-export { tsPresetRange };
+export { tsPresetRange, tsZone };

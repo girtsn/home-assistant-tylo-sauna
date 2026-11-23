@@ -8,6 +8,7 @@ const SA_PICKER_TAG="tylo-sauna-date-range-picker-v"+SA_ASSET_VERSION.replace(/\
 // Register this element before loading dependencies, so transient module
 // failures show a retryable message instead of an empty sidebar.
 let tsPresetRange=null;
+let tsZone=h=>h?.config?.time_zone||"UTC";
 const SA_KEYS=new Set(["climate","light","stop_time","time_to_off","favorite",
   "temperature","temperature_setpoint","humidity","humidity_setpoint",
   "online","fault_code","fault_message","programs","heating_active","standby_active"]);
@@ -62,9 +63,10 @@ class TyloSaunaManagedPanel extends HTMLElement{
     this._assetPromise=import("./tylo-sauna-date-range-picker.js?v="+version+retry)
       .then(picker=>{
         tsPresetRange=picker.tsPresetRange;
+        tsZone=picker.tsZone;
         if(typeof tsPresetRange!=="function")
           throw new Error("Date picker did not export tsPresetRange");
-        this._range??=tsPresetRange("last7");
+        this._range??=tsPresetRange("last7",new Date(),this._hass);
         this._assetsReady=true;
         if(this._hass&&!this._ready&&!this._loading)this._discover();
       })
@@ -376,8 +378,11 @@ class TyloSaunaManagedPanel extends HTMLElement{
     for(let i=0;i<=4;i++){
       const x=L+i*(W-L-R)/4,ms=start+i*(end-start)/4;
       const label=this._svg("text",{x,y:H-21,"text-anchor":"middle",fill:"var(--secondary-text-color,#888)","font-size":12});
-      label.textContent=new Date(ms).toLocaleDateString(undefined,
-        {month:"short",day:(end-start)<100*86400000?"numeric":undefined,year:(end-start)>300*86400000?"2-digit":undefined});
+      label.textContent=new Date(ms).toLocaleDateString(
+        this._hass?.locale?.language||undefined,{
+        timeZone:tsZone(this._hass),month:"short",
+        day:(end-start)<100*86400000?"numeric":undefined,
+        year:(end-start)>300*86400000?"2-digit":undefined});
       svg.append(label);
     }
     const clipId="tylo-plot-"+meta.key;
@@ -464,7 +469,8 @@ class TyloSaunaManagedPanel extends HTMLElement{
             fill:color,opacity:(0.2+0.8*record.mean).toFixed(2)});
           const tip=this._svg("title");
           tip.textContent=dev.name+" · "+(item.index===0?"Heating":"Standby")+
-            " · "+new Date(record.start).toLocaleString()+" · "+
+            " · "+new Date(record.start).toLocaleString(
+              this._hass?.locale?.language||undefined,{timeZone:tsZone(this._hass)})+" · "+
             Math.round(record.mean*100)+"% mean of recorded 0/1 states (not exact runtime)";
           rect.append(tip);svg.append(rect);
         }
